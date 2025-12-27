@@ -8,6 +8,7 @@ from src.environment.graph_enricher import enrich_graph
 from src.utils.visualizer import visualize_graph_static
 from src.ai.pathfinding import find_path_astar
 from src.roles import ArmyRole, RescuerRole, VolunteerRole
+from src.ai.mission_narrator import generate_briefing
 from config import MAP_CENTER_LAT, MAP_CENTER_LON, MAP_DEFAULT_RADIUS
 
 st.set_page_config(page_title="A Perfect Pathway", layout="wide")
@@ -255,7 +256,6 @@ if G:
                         st.success(f"Path Found! Steps: {len(path_nodes)}")
                     else:
                         st.error("No path found between these streets.")
-                        st.info()
             else:
                 st.warning("Please select both Source and Destination streets.")
 
@@ -348,6 +348,26 @@ if G:
                 key="main_map",
                 returned_objects=[],
             )
+
+            # Auto-generate Mission Briefing when path exists
+            if st.session_state["path_coords"]:
+                from config import ENEMY_ZONES
+
+                st.markdown("---")
+                st.subheader("Mission Briefing")
+                briefing = generate_briefing(
+                    role_name=selected_role.name,
+                    source=st.session_state.get("selected_source", "Unknown"),
+                    destination=st.session_state.get("selected_destination", "Unknown"),
+                    steps=len(st.session_state["path_coords"]),
+                    danger_zones_count=len(ENEMY_ZONES),
+                )
+                if briefing:
+                    st.info(briefing)
+                else:
+                    st.warning(
+                        "Mission briefing could not be generated. Proceed with caution."
+                    )
         else:
             st.error("Failed to generate map object.")
 

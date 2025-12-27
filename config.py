@@ -1,5 +1,7 @@
 """Project configuration settings for Perfect Pathway."""
 
+import os
+
 # Environment Settings
 ENVIRONMENT_WIDTH = 10
 ENVIRONMENT_HEIGHT = 10
@@ -47,3 +49,7 @@ ENEMY_ZONES = [
 LOG_LEVEL = "INFO"
 SAVE_PLOTS = True
 PLOT_DPI = 300
+
+# LLM Settings (for Mission Briefings)
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", " ")
+LLM_ENABLED = bool(GEMINI_API_KEY)
