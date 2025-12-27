@@ -3,6 +3,9 @@
 # Environment Settings
 ENVIRONMENT_WIDTH = 10
 ENVIRONMENT_HEIGHT = 10
+MAP_CENTER_LAT = 23.738113
+MAP_CENTER_LON = 90.395857
+MAP_DEFAULT_RADIUS = 2000
 
 # AI Settings
 A_STAR_WEIGHT = "combined"  # distance, time, risk, combined
@@ -28,4 +31,3 @@ MAP_TILES = "OpenStreetMap"
 LOG_LEVEL = "INFO"
 SAVE_PLOTS = True
 PLOT_DPI = 300
-
