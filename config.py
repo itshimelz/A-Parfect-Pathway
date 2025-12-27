@@ -27,6 +27,22 @@ Q_LEARNING_DISCOUNT_RATE = 0.95
 MAP_ZOOM_LEVEL = 13
 MAP_TILES = "OpenStreetMap"
 
+# Enemy/Danger Zones (lat, lon, radius_meters, name)
+ENEMY_ZONES = [
+    (23.7400, 90.3920, 150, "Enemy Camp Alpha"),
+    (23.7350, 90.3980, 100, "Hostile Checkpoint"),
+    (23.7420, 90.4000, 120, "Danger Zone Bravo"),
+    (23.7380, 90.3850, 80, "Sniper Position"),
+    (23.7360, 90.3900, 100, "Sniper Position"),
+    (23.7370, 90.3950, 120, "Danger Zone Charlie"),
+    (23.7390, 90.3920, 150, "Enemy Camp Delta"),
+    (23.7340, 90.3970, 100, "Hostile Checkpoint"),
+    (23.7320, 90.3930, 120, "Danger Zone Echo"),
+    (23.7310, 90.3980, 150, "Enemy Camp Hotel"),
+    (23.7300, 90.4020, 100, "Hostile Checkpoint"),
+    (23.7290, 90.4050, 120, "Danger Zone Hotel"),
+]
+
 # Logging
 LOG_LEVEL = "INFO"
 SAVE_PLOTS = True

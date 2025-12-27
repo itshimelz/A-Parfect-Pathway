@@ -11,8 +11,19 @@ from config import MAP_CENTER_LAT, MAP_CENTER_LON, MAP_DEFAULT_RADIUS
 
 st.set_page_config(page_title="A Perfect Pathway", layout="wide")
 
-st.title("🛡️ A Perfect Pathway - Simulation Environment")
+st.title("A Perfect Pathway - Simulation Environment")
 st.markdown("Real-world street network enriched with **AI-driven risk prediction**.")
+
+
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+
+try:
+    local_css("assets/style.css")
+except FileNotFoundError:
+    pass
 
 # Sidebar for configuration
 st.sidebar.header("Map Configuration")
@@ -53,6 +64,8 @@ def get_map(_G, _boundaries, lat, lon, radius, path_coords=None):
     Generates the folium map object.
     Not cached to allow dynamic path updates.
     """
+    from config import ENEMY_ZONES
+
     m = visualize_graph_static(
         _G,
         filename="outputs/streamlit_map.html",
@@ -60,6 +73,7 @@ def get_map(_G, _boundaries, lat, lon, radius, path_coords=None):
         boundaries_gdf=_boundaries,
         center_coords=(lat, lon),
         radius=radius,
+        enemy_zones=ENEMY_ZONES,
     )
 
     if path_coords:
@@ -96,7 +110,7 @@ def get_map(_G, _boundaries, lat, lon, radius, path_coords=None):
         # Start Marker (Green) with place name
         folium.Marker(
             path_coords[0],
-            popup=f"🚀 {start_name}",
+            popup=f"{start_name}",
             tooltip=start_name,
             icon=folium.Icon(color="green", icon="play"),
         ).add_to(m)
@@ -126,7 +140,68 @@ if G:
 
     with col2:
         st.subheader("Mission Control")
-        if st.button("🎲 Generate Random Mission", type="primary"):
+
+        # Extract unique street names from the graph
+        gdf_nodes_temp, gdf_edges_temp = ox.graph_to_gdfs(G)
+        # Get all names, filter for strings only (some are lists)
+        all_names = gdf_edges_temp["name"].dropna().tolist()
+        street_names = list(set([s for s in all_names if isinstance(s, str)]))[:30]
+        street_names = ["-- Select a Street --"] + sorted(street_names)
+
+        # Create a mapping of street names to node IDs
+        street_node_map = {}
+        for idx, row in gdf_edges_temp.iterrows():
+            name = row.get("name")
+            if isinstance(name, str) and name not in street_node_map:
+                street_node_map[name] = idx[0]  # idx is (u, v, key)
+
+        # Source Selection
+        start_selection = st.selectbox("Source Street", street_names, index=0)
+        if start_selection == "-- Select a Street --":
+            start_node = None
+        else:
+            start_node = street_node_map.get(start_selection)
+
+        # Destination Selection
+        end_selection = st.selectbox("Destination Street", street_names, index=0)
+        if end_selection == "-- Select a Street --":
+            end_node = None
+        else:
+            end_node = end_selection
+
+        col_btn1, col_btn2 = st.columns(2)
+        with col_btn1:
+            plan_mission = st.button(
+                "Plan Mission", type="primary", use_container_width=True
+            )
+        with col_btn2:
+            random_mission = st.button("Random", use_container_width=True)
+
+        # Plan Mission Logic
+        if plan_mission:
+            # Get actual end_node from street_node_map
+            actual_end_node = street_node_map.get(end_selection)
+            if start_node and actual_end_node:
+                with st.spinner("AI calculating optimal path..."):
+                    path_nodes, path_coords = find_path_astar(
+                        G, start_node, actual_end_node, weight_mode=strategy_mode
+                    )
+                    st.session_state["path_coords"] = path_coords
+                    if path_coords:
+                        st.success(f"Path Found! Steps: {len(path_nodes)}")
+                    else:
+                        st.error("No path found between these streets.")
+                        st.info("""
+**Suggestions:**
+- Try selecting different streets (some streets may not be connected)
+- Use the **Random** button to test with connected points
+- The streets might be outside the map radius
+""")
+            else:
+                st.warning("Please select both Source and Destination streets.")
+
+        # Random Mission Logic
+        if random_mission:
             nodes = list(G.nodes())
             if len(nodes) > 1:
                 start_node = random.choice(nodes)
@@ -167,7 +242,13 @@ if G:
         m = get_map(G, boundaries, lat, lon, radius, st.session_state["path_coords"])
 
         if m:
-            st_folium(m, width=900, height=600, key="main_map", returned_objects=[])
+            st_folium(
+                m,
+                height=600,
+                use_container_width=True,
+                key="main_map",
+                returned_objects=[],
+            )
         else:
             st.error("Failed to generate map object.")
 

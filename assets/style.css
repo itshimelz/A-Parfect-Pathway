@@ -1,0 +1,36 @@
+/* Main container padding */
+.block-container {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+  background-color: #f8f9fa;
+}
+
+/* Map specific styling */
+iframe {
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .block-container {
+    padding: 1rem;
+  }
+}
+
+/* Custom button styling */
+div.stButton > button {
+  width: 100%;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+/* Metric styling */
+[data-testid="stMetricValue"] {
+  font-size: 1.8rem;
+  color: #333;
+}

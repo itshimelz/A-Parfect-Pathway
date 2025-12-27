@@ -11,6 +11,7 @@ def visualize_graph_static(
     boundaries_gdf=None,
     center_coords=None,
     radius=None,
+    enemy_zones=None,
 ):
     """
     Generates a static HTML map visualization.
@@ -40,10 +41,7 @@ def visualize_graph_static(
             attribution_control=False,
         )
 
-        # Inject CSS for rounded corners
-        m.get_root().header.add_child(
-            folium.Element("<style>.leaflet-container { border-radius: 12px; }</style>")
-        )
+        # Custom styling is now handled by assets/style.css
 
         # Plot boundaries first (so they are in the background)
         if boundaries_gdf is not None and not boundaries_gdf.empty:
@@ -91,6 +89,23 @@ def visualize_graph_static(
                 ).add_to(m)
             except Exception as circle_err:
                 print(f"Error adding radius circle: {circle_err}")
+
+        # Plot enemy/danger zones
+        if enemy_zones:
+            for zone in enemy_zones:
+                lat, lon, zone_radius, name = zone
+                folium.Circle(
+                    location=[lat, lon],
+                    radius=zone_radius,
+                    color="#FF0000",
+                    weight=2,
+                    fill=True,
+                    fill_color="#FF0000",
+                    fill_opacity=0.3,
+                    popup=f"{name}",
+                    tooltip=name,
+                ).add_to(m)
+            print(f"Added {len(enemy_zones)} enemy zones to map.")
 
         # Plot edges
         folium.GeoJson(
