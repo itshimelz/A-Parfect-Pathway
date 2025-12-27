@@ -45,5 +45,9 @@ Develop the intelligent algorithms that will power the decision-making process. 
 
 ## **Deliverables**
 
-- A working A\* pathfinder that respects risk weights.
+- A working A\* pathfinder that respects risk weights and **returns full edge geometry** for visualization.
 - A trained ML model that predicts edge safety.
+- **Integration**: The pathfinding module will be called directly by `app.py`.
+- **UI Requirements**:
+  - `app.py` must provide inputs for Start/End node selection (or map clicks).
+  - The returned path must be compatible with `folium.PolyLine` or `AntPath`.

@@ -44,4 +44,8 @@ Define distinct personalities/strategies for the different actors in the system.
 ## **Deliverables**
 
 - Python classes for each role.
-- A script showing different paths generated for the _same_ start/end points depending on the role selected.
+- **Integration**: Roles will be selectable via the **Streamlit Sidebar** in `app.py`.
+- **Visualization Specs**:
+  - **Army**: Display with a `fa-shield` icon (FontAwesome) and Green path.
+  - **Rescuer**: Display with a `fa-medkit` icon and Red/Orange animated path (`AntPath`).
+  - **Volunteer**: Display with a `fa-hand-peace-o` icon and Blue path.

@@ -14,7 +14,7 @@ Implement the Reinforcement Learning (Q-Learning) loop and the overall simulatio
 - **Q-Table**: A matrix `[Nodes x Neighbors]` storing the value of taking an action.
 - **Algorithm**:
   $Q(s, a) = Q(s, a) + \alpha [R + \gamma \max Q(s', a') - Q(s, a)]$
-- **Training**: We need a "Training Phase" button in the UI that runs ~1000 fast episodes to "train" the Rescuer before the user sees the final result.
+- **Training**: We need a **"Train Model" button** in the associated Streamlit UI that runs episodes in the background and updates a progress bar.
 
 ### 2. **Simulation Controller**
 
@@ -23,16 +23,17 @@ Implement the Reinforcement Learning (Q-Learning) loop and the overall simulatio
   - Load the map.
   - Instantiate the Roles.
   - Run the logic.
+  - **Replay System**: Generate a list of timestamped GeoJSON points to be visualized as an **Animated Path** (e.g., using `AntPath`) to replay the agent's movement.
   - Collect stats (Total distance, total risk accumulated, success/fail).
 
 ## **Implementation Steps**
 
 1.  **RL Agent**: Create `src/ai/q_learning.py`.
     - Class `QLearningAgent`.
-    - Methods `train(episodes)`, `get_best_action(state)`.
+    - Methods `train(episodes, progress_callback)`, `get_best_action(state)`.
 2.  **Simulation Manager**: Create `src/simulation/engine.py`.
-    - Function `run_single_episode(role, start, end)`.
-    - Function `compare_algorithms(start, end)` -> Returns stats for all 3 roles.
+    - Function `run_simulated_episode(role, start, end) -> trace_data`.
+    - Function `compare_algorithms` -> Returns stats for all 3 roles.
 
 ## **Deliverables**
 
