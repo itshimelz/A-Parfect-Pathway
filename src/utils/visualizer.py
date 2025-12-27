@@ -92,8 +92,9 @@ def visualize_graph_static(
 
         # Plot enemy/danger zones
         if enemy_zones:
-            for zone in enemy_zones:
+            for idx, zone in enumerate(enemy_zones, start=1):
                 lat, lon, zone_radius, name = zone
+                # Create the danger zone circle
                 folium.Circle(
                     location=[lat, lon],
                     radius=zone_radius,
@@ -103,7 +104,29 @@ def visualize_graph_static(
                     fill_color="#FF0000",
                     fill_opacity=0.3,
                     popup=f"{name}",
-                    tooltip=name,
+                ).add_to(m)
+
+                # Add permanent label marker for the zone name
+                folium.Marker(
+                    location=[lat, lon],
+                    icon=folium.DivIcon(
+                        html=f"""
+                        <div style="
+                            background-color: white;
+                            border: 1px solid #ccc;
+                            border-radius: 4px;
+                            padding: 4px 8px;
+                            font-size: 12px;
+                            font-weight: 500;
+                            white-space: nowrap;
+                            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+                            transform: translate(-50%, -100%);
+                            text-align: center;
+                        ">{idx}. {name}</div>
+                        """,
+                        icon_size=(150, 36),
+                        icon_anchor=(75, 36),
+                    ),
                 ).add_to(m)
             print(f"Added {len(enemy_zones)} enemy zones to map.")
 

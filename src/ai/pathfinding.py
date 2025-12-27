@@ -24,9 +24,10 @@ def haversine(u, v, G):
     return d
 
 
-def calculate_weight(u, v, d, mode="safe"):
+def calculate_weight(u, v, d, mode="safe", blocked_zones=None, G=None):
     """
     Calculates the weight of an edge based on distance and risk.
+    If blocked_zones is provided and edge is inside a zone, returns infinity.
     """
     # Handle MultiDiGraph structure where d might be {0: {path_data}, 1: {path_data}}
     # dependent on NetworkX version and graph type.
@@ -39,6 +40,19 @@ def calculate_weight(u, v, d, mode="safe"):
 
     length = edge_data.get("length", 1.0)
     risk = edge_data.get("risk_level", 0.0)
+
+    # Check if edge is inside any blocked zone
+    if blocked_zones and G:
+        u_node = G.nodes[u]
+        v_node = G.nodes[v]
+        edge_lat = (u_node["y"] + v_node["y"]) / 2
+        edge_lon = (u_node["x"] + v_node["x"]) / 2
+
+        for zone_lat, zone_lon, zone_radius, _ in blocked_zones:
+            # Simple distance check (approximate, good enough for small areas)
+            dist = haversine_coords(edge_lat, edge_lon, zone_lat, zone_lon)
+            if dist <= zone_radius:
+                return float("inf")  # Impassable
 
     if mode == "safe":
         # Army Logic: Avoid risk at all costs.
@@ -56,7 +70,20 @@ def calculate_weight(u, v, d, mode="safe"):
         return length
 
 
-def find_path_astar(G, start_node, end_node, weight_mode="safe"):
+def haversine_coords(lat1, lon1, lat2, lon2):
+    """Calculate distance between two lat/lon points in meters."""
+    R = 6371000  # Earth radius in meters
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = (
+        math.sin(dphi / 2) ** 2
+        + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    )
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def find_path_astar(G, start_node, end_node, weight_mode="safe", blocked_zones=None):
     """
     Finds the optimal path using A* Search.
 
@@ -65,6 +92,7 @@ def find_path_astar(G, start_node, end_node, weight_mode="safe"):
         start_node (int): Source node ID.
         end_node (int): Target node ID.
         weight_mode (str): 'safe', 'balanced', or 'fast'.
+        blocked_zones (list): Optional list of (lat, lon, radius, name) zones to avoid.
 
     Returns:
         tuple: (path_nodes, path_coords)
@@ -78,7 +106,9 @@ def find_path_astar(G, start_node, end_node, weight_mode="safe"):
             start_node,
             end_node,
             heuristic=lambda u, v: haversine(u, v, G),
-            weight=lambda u, v, d: calculate_weight(u, v, d, weight_mode),
+            weight=lambda u, v, d: calculate_weight(
+                u, v, d, weight_mode, blocked_zones, G
+            ),
         )
 
         # Extract full geometry

@@ -7,6 +7,7 @@ from src.environment.map_downloader import download_graph, download_boundaries
 from src.environment.graph_enricher import enrich_graph
 from src.utils.visualizer import visualize_graph_static
 from src.ai.pathfinding import find_path_astar
+from src.roles import ArmyRole, RescuerRole, VolunteerRole
 from config import MAP_CENTER_LAT, MAP_CENTER_LON, MAP_DEFAULT_RADIUS
 
 st.set_page_config(page_title="A Perfect Pathway", layout="wide")
@@ -32,15 +33,18 @@ lon = st.sidebar.number_input("Center Longitude", value=MAP_CENTER_LON, format="
 radius = st.sidebar.slider("Radius (meters)", 500, 5000, MAP_DEFAULT_RADIUS)
 st.sidebar.markdown("---")
 
-st.sidebar.header("Pathfinding AI")
-path_mode = st.sidebar.selectbox(
-    "AI Strategy", ["Safe (Army)", "Balanced (Volunteer)", "Fast (Civilian)"]
-)
-strategy_mode = "safe"
-if "Volunteer" in path_mode:
-    strategy_mode = "balanced"
-if "Civilian" in path_mode:
-    strategy_mode = "fast"
+st.sidebar.header("Role Selection")
+
+# Initialize roles
+ROLES = {
+    "Army": ArmyRole(),
+    "Rescuer": RescuerRole(),
+    "Volunteer": VolunteerRole(),
+}
+
+selected_role_name = st.sidebar.selectbox("Mission Role", list(ROLES.keys()))
+selected_role = ROLES[selected_role_name]
+st.sidebar.caption(selected_role.description)
 
 
 @st.cache_resource
@@ -59,7 +63,7 @@ def load_boundaries(lat, lon):
     return download_boundaries(location=(lat, lon))
 
 
-def get_map(_G, _boundaries, lat, lon, radius, path_coords=None):
+def get_map(_G, _boundaries, lat, lon, radius, path_coords=None, path_color="#FF4B4B"):
     """
     Generates the folium map object.
     Not cached to allow dynamic path updates.
@@ -101,7 +105,7 @@ def get_map(_G, _boundaries, lat, lon, radius, path_coords=None):
         # Draw the calculated path
         folium.PolyLine(
             path_coords,
-            color="#FF4B4B",
+            color=path_color,
             weight=5,
             opacity=0.8,
             tooltip="AI Calculated Path",
@@ -126,6 +130,27 @@ def get_map(_G, _boundaries, lat, lon, radius, path_coords=None):
     return m
 
 
+def add_preview_markers(m, _G, start_node, end_node, start_name, end_name):
+    """Add preview markers for selected locations (before path is calculated)."""
+    if start_node and start_node in _G.nodes:
+        node_data = _G.nodes[start_node]
+        folium.Marker(
+            location=[node_data["y"], node_data["x"]],
+            popup=f"Start: {start_name}",
+            tooltip=f"Source: {start_name}",
+            icon=folium.Icon(color="green", icon="play"),
+        ).add_to(m)
+
+    if end_node and end_node in _G.nodes:
+        node_data = _G.nodes[end_node]
+        folium.Marker(
+            location=[node_data["y"], node_data["x"]],
+            popup=f"End: {end_name}",
+            tooltip=f"Destination: {end_name}",
+            icon=folium.Icon(color="red", icon="flag"),
+        ).add_to(m)
+
+
 # Main logic
 G = load_and_enrich_graph(lat, lon, radius)
 boundaries = load_boundaries(lat, lon)
@@ -145,8 +170,8 @@ if G:
         gdf_nodes_temp, gdf_edges_temp = ox.graph_to_gdfs(G)
         # Get all names, filter for strings only (some are lists)
         all_names = gdf_edges_temp["name"].dropna().tolist()
-        street_names = list(set([s for s in all_names if isinstance(s, str)]))[:30]
-        street_names = ["-- Select a Street --"] + sorted(street_names)
+        street_names = [s for s in all_names if isinstance(s, str)]
+        street_names = ["-- Select a Street --"] + sorted(set(street_names))
 
         # Create a mapping of street names to node IDs
         street_node_map = {}
@@ -155,48 +180,82 @@ if G:
             if isinstance(name, str) and name not in street_node_map:
                 street_node_map[name] = idx[0]  # idx is (u, v, key)
 
+        # Create reverse mapping: node ID -> street name
+        node_street_map = {v: k for k, v in street_node_map.items()}
+
+        # Initialize session state for selections
+        if "selected_source" not in st.session_state:
+            st.session_state["selected_source"] = "-- Select a Street --"
+        if "selected_destination" not in st.session_state:
+            st.session_state["selected_destination"] = "-- Select a Street --"
+
         # Source Selection
-        start_selection = st.selectbox("Source Street", street_names, index=0)
+        source_index = 0
+        if st.session_state["selected_source"] in street_names:
+            source_index = street_names.index(st.session_state["selected_source"])
+        start_selection = st.selectbox(
+            "Source Street", street_names, index=source_index
+        )
+        st.session_state["selected_source"] = start_selection
         if start_selection == "-- Select a Street --":
             start_node = None
         else:
             start_node = street_node_map.get(start_selection)
 
         # Destination Selection
-        end_selection = st.selectbox("Destination Street", street_names, index=0)
+        dest_index = 0
+        if st.session_state["selected_destination"] in street_names:
+            dest_index = street_names.index(st.session_state["selected_destination"])
+        end_selection = st.selectbox(
+            "Destination Street", street_names, index=dest_index
+        )
+        st.session_state["selected_destination"] = end_selection
         if end_selection == "-- Select a Street --":
             end_node = None
         else:
             end_node = end_selection
 
-        col_btn1, col_btn2 = st.columns(2)
+        col_btn1, col_btn2, col_btn3 = st.columns(3)
         with col_btn1:
             plan_mission = st.button(
                 "Plan Mission", type="primary", use_container_width=True
             )
         with col_btn2:
             random_mission = st.button("Random", use_container_width=True)
+        with col_btn3:
+            clear_mission = st.button("Clear", use_container_width=True)
+
+        # Clear Mission Logic
+        if clear_mission:
+            st.session_state["path_coords"] = None
+            st.session_state["selected_source"] = "-- Select a Street --"
+            st.session_state["selected_destination"] = "-- Select a Street --"
+            st.rerun()
 
         # Plan Mission Logic
         if plan_mission:
             # Get actual end_node from street_node_map
             actual_end_node = street_node_map.get(end_selection)
             if start_node and actual_end_node:
+                # Army blocks enemy zones
+                from config import ENEMY_ZONES
+
+                zones_to_block = ENEMY_ZONES if selected_role.name == "Army" else None
+
                 with st.spinner("AI calculating optimal path..."):
                     path_nodes, path_coords = find_path_astar(
-                        G, start_node, actual_end_node, weight_mode=strategy_mode
+                        G,
+                        start_node,
+                        actual_end_node,
+                        weight_mode=selected_role.weight_mode,
+                        blocked_zones=zones_to_block,
                     )
                     st.session_state["path_coords"] = path_coords
                     if path_coords:
                         st.success(f"Path Found! Steps: {len(path_nodes)}")
                     else:
                         st.error("No path found between these streets.")
-                        st.info("""
-**Suggestions:**
-- Try selecting different streets (some streets may not be connected)
-- Use the **Random** button to test with connected points
-- The streets might be outside the map radius
-""")
+                        st.info()
             else:
                 st.warning("Please select both Source and Destination streets.")
 
@@ -207,9 +266,28 @@ if G:
                 start_node = random.choice(nodes)
                 end_node = random.choice(nodes)
 
+                # Find street names for these nodes (if they exist)
+                start_street = node_street_map.get(start_node, None)
+                end_street = node_street_map.get(end_node, None)
+
+                # Update dropdowns if we found matching streets
+                if start_street:
+                    st.session_state["selected_source"] = start_street
+                if end_street:
+                    st.session_state["selected_destination"] = end_street
+
+                # Army blocks enemy zones
+                from config import ENEMY_ZONES
+
+                zones_to_block = ENEMY_ZONES if selected_role.name == "Army" else None
+
                 with st.spinner("AI calculating optimal path..."):
                     path_nodes, path_coords = find_path_astar(
-                        G, start_node, end_node, weight_mode=strategy_mode
+                        G,
+                        start_node,
+                        end_node,
+                        weight_mode=selected_role.weight_mode,
+                        blocked_zones=zones_to_block,
                     )
                     st.session_state["path_coords"] = path_coords
                     if path_coords:
@@ -226,7 +304,7 @@ if G:
         if st.session_state["path_coords"]:
             # Simple metric: number of segments
             st.info(f"Route Segments: {len(st.session_state['path_coords'])}")
-            st.caption(f"Strategy: {path_mode}")
+            st.caption(f"Role: {selected_role.name}")
 
         # Display some edge data
         st.subheader("Intel Feed")
@@ -239,7 +317,28 @@ if G:
 
     with col1:
         st.subheader("Live Operational Map")
-        m = get_map(G, boundaries, lat, lon, radius, st.session_state["path_coords"])
+        m = get_map(
+            G,
+            boundaries,
+            lat,
+            lon,
+            radius,
+            st.session_state["path_coords"],
+            path_color=selected_role.path_color,
+        )
+
+        # Add preview markers if locations selected but no path yet
+        if m and not st.session_state["path_coords"]:
+            add_preview_markers(
+                m,
+                G,
+                start_node,
+                street_node_map.get(end_selection)
+                if end_selection != "-- Select a Street --"
+                else None,
+                start_selection,
+                end_selection,
+            )
 
         if m:
             st_folium(
