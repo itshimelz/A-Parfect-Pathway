@@ -17,7 +17,7 @@ class VolunteerRole(BaseRole):
 
     @property
     def weight_mode(self) -> str:
-        return "balanced"
+        return "efficient"
 
     @property
     def path_color(self) -> str:
