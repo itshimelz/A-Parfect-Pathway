@@ -81,6 +81,9 @@ class RiskModel:
         """
         Trains the model on synthetic 'intel' to establish a baseline behavior.
         """
+        if self.is_trained:
+            return
+
         X = []
         y = []
 
